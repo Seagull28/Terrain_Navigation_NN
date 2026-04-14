@@ -1,0 +1,5 @@
+train: craters/train/images
+val: craters/valid/images
+
+nc: 1
+names: ["crater"]
