@@ -9,4 +9,4 @@ navigator = Navigator(
     datapath
 )
 
-navigator.locateDescentImageInReferenceImage(datapath + "Angle1.ppm")
+navigator.locateDescentImageInReferenceImage(datapath + "Scene4.ppm")
