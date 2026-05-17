@@ -2,81 +2,127 @@ from ultralytics import YOLO
 import numpy as np
 from src.Crater import Crater
 
-# Load trained model
-model = YOLO("best.pt")
 
+class NeuralDetector:
 
-def remove_close_craters(craters):
-    filtered = {}
-    for k1, c1 in craters.items():
-        keep = True
-        for k2, c2 in craters.items():
-            if k1 == k2:
+    def __init__(self, model_path="best.pt", conf_threshold=0.7):
+
+        self.model = YOLO(model_path)
+
+        self.conf_threshold = conf_threshold
+
+    # ----------------------------------------
+    # REMOVE OVERLAPPING CRATERS
+    # ----------------------------------------
+    def remove_close_craters(self, craters):
+
+        keys = list(craters.keys())
+
+        to_remove = set()
+
+        for i, k1 in enumerate(keys):
+
+            if k1 in to_remove:
                 continue
 
-            dist = np.linalg.norm(c1.centerpoint - c2.centerpoint)
+            for k2 in keys[i + 1:]:
 
-            if dist < min(c1.diameter, c2.diameter) * 0.5:
-                if getattr(c1, "score", 0) < getattr(c2, "score", 0):
-                    keep = False
-                    break
+                if k2 in to_remove:
+                    continue
 
-        if keep:
-            filtered[k1] = c1
+                c1 = craters[k1]
+                c2 = craters[k2]
 
-    return filtered
+                dist = np.linalg.norm(
+                    c1.centerpoint - c2.centerpoint
+                )
 
+                if dist < min(c1.radius, c2.radius):
 
-def estimate_depth(diameter):
-    # 🔥 Improved depth model
-    return 0.15 * diameter + 0.02 * np.sqrt(diameter)
+                    worse = (
+                        k1
+                        if c1.score < c2.score
+                        else k2
+                    )
 
+                    to_remove.add(worse)
 
-def detectCratersNN(im):
-    img = np.array(im)
-    results = model(img)
+        return {
+            k: v
+            for k, v in craters.items()
+            if k not in to_remove
+        }
 
-    craters = {}
-    count = 0
+    # ----------------------------------------
+    # DEPTH ESTIMATION
+    # ----------------------------------------
+    def estimate_depth(self, diameter):
 
-    for r in results:
-        boxes = r.boxes.xyxy.cpu().numpy()
-        scores = r.boxes.conf.cpu().numpy()
+        return 0.15 * diameter + 0.02 * np.sqrt(diameter)
 
-        for box, score in zip(boxes, scores):
+    # ----------------------------------------
+    # DETECTION
+    # ----------------------------------------
+    def detectCratersNN(self, im):
 
-            # 🔥 Strong filtering
-            if score < 0.7:
-                continue
+        img = np.array(im)
 
-            x1, y1, x2, y2 = box
+        results = self.model(img)
 
-            cx = (x1 + x2) / 2
-            cy = (y1 + y2) / 2
+        craters = {}
 
-            # 🔥 Better diameter estimation
-            diameter = np.median([(x2 - x1), (y2 - y1)])
+        count = 0
 
-            depth = estimate_depth(diameter)
+        for r in results:
 
-            crater = Crater(count, np.array([cy, cx]), diameter)
+            boxes = r.boxes.xyxy.cpu().numpy()
 
-            crater.depth = depth
-            crater.score = float(score)
+            scores = r.boxes.conf.cpu().numpy()
 
-            craters[count] = crater
-            count += 1
+            for box, score in zip(boxes, scores):
 
-    print(f"🧠 NN detected craters: {len(craters)}")
+                if score < self.conf_threshold:
+                    continue
 
-    # Remove overlaps
-    craters = remove_close_craters(craters)
+                x1, y1, x2, y2 = box
 
-    # 🔥 Keep only BEST craters
-    craters = dict(
-        sorted(craters.items(), key=lambda x: x[1].score, reverse=True)[:15]
-    )
+                cx = (x1 + x2) / 2
+                cy = (y1 + y2) / 2
 
-    print(f"🧠 NN filtered craters: {len(craters)}")
+                diameter = np.median([
+                    (x2 - x1),
+                    (y2 - y1)
+                ])
 
-    return craters
+                crater = Crater(
+                    count,
+                    np.array([cy, cx]),
+                    diameter,
+                    float(score)
+                )
+
+                crater.depth = self.estimate_depth(
+                    diameter
+                )
+
+                craters[count] = crater
+
+                count += 1
+
+        print(f"🧠 NN detected craters: {len(craters)}")
+
+        craters = self.remove_close_craters(
+            craters
+        )
+
+        craters = dict(
+            sorted(
+                craters.items(),
+                key=lambda x: x[1].score,
+                reverse=True
+            )[:15]
+        )
+
+        print(f"🧠 NN filtered craters: {len(craters)}")
+
+        return craters

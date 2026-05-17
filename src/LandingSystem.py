@@ -1,3 +1,5 @@
+# src/LandingSystem.py
+
 import numpy as np
 
 
@@ -5,242 +7,207 @@ class LandingSystem:
 
     def __init__(self, image_shape):
 
-        self.h = image_shape[0]
-        self.w = image_shape[1]
+        self.height = image_shape[0]
+        self.width  = image_shape[1]
 
-    # -------------------------------------------------
-    # IMPROVED LANDING SCORE
-    # -------------------------------------------------
-    def compute_score(self, point, craters):
+        # Pre-compute normalisation constants so every term
+        # lives in roughly the same numeric range (~0-1).
+        self._max_dist = np.sqrt(self.height ** 2 + self.width ** 2)
+        self._max_dim  = max(self.height, self.width)
 
-        distances = []
+    # ----------------------------------------
+    # DISTANCE TO NEAREST CRATER EDGE
+    # ----------------------------------------
+    def distance_to_nearest_crater(self, point, craters):
+        """Returns clearance from point to the nearest crater rim (px)."""
+        py, px = point
+        min_dist = float('inf')
 
         for crater in craters.values():
+            cy, cx   = crater.centerpoint
+            dist     = np.linalg.norm(np.array([py, px]) - np.array([cy, cx]))
+            edge_dist = dist - crater.diameter / 2
+            if edge_dist < min_dist:
+                min_dist = edge_dist
 
-            dist = (
-                np.linalg.norm(
-                    point - crater.centerpoint
-                )
-                - crater.diameter / 2
-            )
+        return max(min_dist, 0.0)
 
-            # INSIDE CRATER = VERY BAD
-            if dist < 0:
-                return -99999
+    # ----------------------------------------
+    # LOCAL CRATER DENSITY
+    # ----------------------------------------
+    def crater_density(self, point, craters, radius=80):
+        """Number of crater centres within `radius` px of point."""
+        py, px  = point
+        density = 0
 
-            distances.append(dist)
+        for crater in craters.values():
+            cy, cx = crater.centerpoint
+            dist   = np.linalg.norm(np.array([py, px]) - np.array([cy, cx]))
+            if dist < radius:
+                density += 1
 
-        if len(distances) == 0:
-            return 0
+        return density
 
-        # -------------------------------------------------
-        # FEATURES
-        # -------------------------------------------------
-        min_clearance = min(distances)
+    # ----------------------------------------
+    # TERRAIN SMOOTHNESS
+    # depth-weighted influence of all craters
+    # ----------------------------------------
+    def terrain_smoothness(self, point, craters):
+        """Depth-weighted crater influence (roughness proxy)."""
+        py, px     = point
+        smoothness = 0.0
 
-        avg_clearance = np.mean(distances)
+        for crater in craters.values():
+            cy, cx = crater.centerpoint
+            dist   = np.linalg.norm(np.array([py, px]) - np.array([cy, cx]))
+            smoothness += crater.depth / (dist + 1.0)
 
-        density = np.sum(np.array(distances) < 120)
+        return smoothness
 
-        # -------------------------------------------------
-        # GLOBAL SAFETY SCORE
-        # -------------------------------------------------
+    # ----------------------------------------
+    # TERRAIN SLOPE  (finite-difference on depth field)
+    # This is genuinely different from smoothness:
+    # it measures the *gradient* of the depth field
+    # at the candidate point, not the total influence.
+    # ----------------------------------------
+    def terrain_slope(self, point, craters, delta=5):
+        """
+        Estimate local slope via finite differences on the
+        reconstructed depth surface at `point`.
+        A flat inter-crater plateau → slope ≈ 0.
+        A crater rim → slope is large.
+        """
+        py, px = point
+
+        def depth_at(y, x):
+            val = 0.0
+            for crater in craters.values():
+                cy, cx  = crater.centerpoint
+                r       = crater.diameter / 2.0
+                dist_sq = (y - cy) ** 2 + (x - cx) ** 2
+                # Gaussian depression
+                val -= crater.depth * np.exp(-dist_sq / (2.0 * r ** 2))
+            return val
+
+        dzdx = (depth_at(py, px + delta) - depth_at(py, px - delta)) / (2 * delta)
+        dzdy = (depth_at(py + delta, px) - depth_at(py - delta, px)) / (2 * delta)
+
+        return np.sqrt(dzdx ** 2 + dzdy ** 2)   # gradient magnitude
+
+    # ----------------------------------------
+    # BOUNDARY CENTRALITY  (reward, not penalty)
+    # Returns 0.0 at image corners, 1.0 at image centre.
+    # ----------------------------------------
+    def boundary_centrality(self, point):
+        """
+        True centre-biased reward.
+        Peaks at 1.0 at the image centre; falls to 0.0 at the corners.
+        This avoids the margin-clipping artifact where points exactly at
+        `margin` distance from the edge score identically to the centre.
+        """
+        py, px = point
+
+        centre_y = self.height / 2.0
+        centre_x = self.width  / 2.0
+
+        # Maximum possible distance from centre (corner distance)
+        max_dist = np.sqrt(centre_y ** 2 + centre_x ** 2)
+
+        dist = np.sqrt((py - centre_y) ** 2 + (px - centre_x) ** 2)
+
+        return float(1.0 - dist / max_dist)   # 1.0 at centre, 0.0 at corner
+
+    # ----------------------------------------
+    # LANDING SCORE  (all terms normalised ~0-1)
+    # ----------------------------------------
+    def landing_score(self, point, craters):
+        """
+        Higher = safer to land.
+
+        Positive (rewards):
+          min_clearance  – stay away from crater rims
+          centrality     – stay away from image borders
+
+        Negative (penalties):
+          density        – avoid crowded regions
+          smoothness     – avoid deep/close craters
+          slope          – avoid steep terrain
+
+        All terms are scaled so they contribute comparably.
+        """
+        # ---- rewards ----
+        min_clearance = self.distance_to_nearest_crater(point, craters)
+        norm_clearance = min_clearance / self._max_dim          # 0-1
+
+        centrality = self.boundary_centrality(point)            # 0-1
+
+        # ---- penalties ----
+        density    = self.crater_density(point, craters)        # integer, max ~12
+        smoothness = self.terrain_smoothness(point, craters)    # depth/px units
+        slope      = self.terrain_slope(point, craters)         # unitless gradient
+
+        # Normalise penalties to ~0-1 range
+        norm_density    = density    / max(len(craters), 1)
+        norm_smoothness = np.clip(smoothness / 5.0, 0.0, 1.0)  # empirical cap
+        norm_slope      = np.clip(slope      / 2.0, 0.0, 1.0)  # gradient cap
+
         score = (
-            3.0 * min_clearance
-            + 1.5 * avg_clearance
-            - 4.0 * density
+              5.0 * norm_clearance    # primary safety driver
+            + 3.0 * centrality        # penalise edges gently
+            - 4.0 * norm_density      # avoid crater clusters
+            - 2.0 * norm_smoothness   # avoid rough terrain
+            - 2.0 * norm_slope        # avoid steep slopes
         )
 
         return score
 
-    # -------------------------------------------------
-    # FIND BEST LANDING POINT
-    # -------------------------------------------------
-    def find_best_landing_point(self, craters):
+    # ----------------------------------------
+    # FIND BEST LANDING POINT  (coarse → fine)
+    # ----------------------------------------
+    def find_best_landing_point(self, craters, margin=40):
+        """
+        Two-pass coarse-to-fine search so we don't miss the true optimum.
 
-        best_score = -1e9
+        Pass 1: coarse grid (step=40) to locate the best region.
+        Pass 2: fine grid (step=10) within 60 px of the coarse best.
+        """
+        # Pass 1 – coarse
+        best_score  = -float('inf')
+        best_coarse = None
 
-        best_point = None
+        for y in range(margin, self.height - margin, 40):
+            for x in range(margin, self.width - margin, 40):
+                s = self.landing_score((y, x), craters)
+                if s > best_score:
+                    best_score  = s
+                    best_coarse = (y, x)
 
-        # Smaller step = better search
-        for y in range(30, self.h - 30, 10):
+        # Pass 2 – fine, within a window around the coarse winner
+        cy, cx = best_coarse
+        window = 60
 
-            for x in range(30, self.w - 30, 10):
+        for y in range(max(margin, cy - window),
+                       min(self.height - margin, cy + window), 10):
+            for x in range(max(margin, cx - window),
+                           min(self.width  - margin, cx + window), 10):
+                s = self.landing_score((y, x), craters)
+                if s > best_score:
+                    best_score = s
+                    best_coarse = (y, x)
 
-                point = np.array([y, x])
-
-                score = self.compute_score(
-                    point,
-                    craters
-                )
-
-                if score > best_score:
-
-                    best_score = score
-
-                    best_point = point
-
+        best_point = np.array(best_coarse).astype(int)
         return best_point, best_score
 
-    # -------------------------------------------------
-    # DISTANCE TO NEAREST CRATER
-    # -------------------------------------------------
-    def distance_to_nearest_crater(
-        self,
-        point,
-        craters
-    ):
-
-        distances = []
-
-        for crater in craters.values():
-
-            dist = (
-                np.linalg.norm(
-                    point - crater.centerpoint
-                )
-                - crater.diameter / 2
-            )
-
-            distances.append(dist)
-
-        return min(distances)
-
-    # -------------------------------------------------
+    # ----------------------------------------
     # HEATMAP
-    # -------------------------------------------------
-    def generate_heatmap(self, craters):
+    # ----------------------------------------
+    def generate_heatmap(self, craters, step=10):
+        """Score every grid cell for visualisation."""
+        heatmap = np.zeros((self.height, self.width))
 
-        heatmap = np.zeros((self.h, self.w))
-
-        for y in range(0, self.h, 4):
-
-            for x in range(0, self.w, 4):
-
-                point = np.array([y, x])
-
-                score = self.compute_score(
-                    point,
-                    craters
-                )
-
-                heatmap[y, x] = score
+        for y in range(0, self.height, step):
+            for x in range(0, self.width, step):
+                score = self.landing_score((y, x), craters)
+                heatmap[y:y + step, x:x + step] = score
 
         return heatmap
-
-    # ----------------------------------------
-    # IMPROVED 3D TERRAIN VISUALIZATION
-    # ----------------------------------------  
-    def generate3DTerrainMap(self,descentImageCraters,best_point):  
-
-        import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
-        import numpy as np
-        import os   
-
-        # ----------------------------------------
-        # TERRAIN SIZE
-        # ----------------------------------------
-        h = 512
-        w = 512 
-
-        # Elevation map
-        Z = np.zeros((h, w))
-
-        # Coordinate grid
-        x = np.arange(0, w)
-        y = np.arange(0, h)
-
-        X, Y = np.meshgrid(x, y)
-
-        # ----------------------------------------
-        # CREATE CRATER DEPRESSIONS
-        # ----------------------------------------
-        for crater in descentImageCraters.values(): 
-
-            cy, cx = crater.centerpoint
-
-            radius = crater.diameter / 2
-
-            depth = crater.depth
-
-            # Gaussian depression   
-            crater_surface = -depth * np.exp(
-                -(
-                    ((X - cx) ** 2 + (Y - cy) ** 2)
-                    / (2 * (radius ** 2))
-                )
-            )
-
-            Z += crater_surface
-
-        # ----------------------------------------
-        # PLOT
-        # ----------------------------------------
-        fig = plt.figure(figsize=(12, 10))
-
-        ax = fig.add_subplot(111, projection='3d')
-
-        surface = ax.plot_surface(
-            X,
-            Y,
-            Z,
-            cmap='terrain',
-            linewidth=0,
-            antialiased=True
-        )   
-
-        # ----------------------------------------
-        # LANDING POINT
-        # ----------------------------------------
-        by, bx = best_point.astype(int)
-
-        bz = Z[by, bx]
-
-        ax.scatter(
-            bx,
-            by,
-            bz + 2,
-            color='red',
-            s=200,
-            marker='X',
-            label='Landing Point'
-        )   
-
-        # ----------------------------------------
-        # LABELS
-        # ----------------------------------------  
-        ax.set_title(
-            "3D Terrain Reconstruction",
-            fontsize=18,
-            fontweight='bold'
-        )
-
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Elevation")
-
-        ax.legend() 
-
-        fig.colorbar(
-            surface,
-            shrink=0.5,
-            aspect=10,
-            label='Terrain Elevation'
-        )
-
-        # ----------------------------------------
-        # SAVE
-        # ----------------------------------------
-        path = os.path.join(
-            self.output_dir,
-            "terrain_3d.png"
-        )
-        plt.savefig(
-            path,
-            dpi=300
-        )
-
-        print(f"🖼️ Saved 3D terrain: {path}")
-
-        plt.show()

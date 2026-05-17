@@ -1,16 +1,29 @@
-# Python cache
+# ====================================================================
+# Gitignore rules for Terrain Relative Navigation (TRN) Project
+# ====================================================================
+
+# Python bytecode & caching
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
 
-# Output images
+# Runtime output directories (saves clean code but ignores local runs)
 outputs/
+**/outputs/
+*.png
+*.jpg
+*.jpeg
+report.txt
 
-# VS Code settings
+# Heavy Data Dependencies & Local Models
+data/
+*.pt
+*.weights
+best.pt
+
+# IDE / System files
 .vscode/
-
-# Jupyter checkpoints
-.ipynb_checkpoints/
-
-# System files
+.idea/
 .DS_Store
 Thumbs.db

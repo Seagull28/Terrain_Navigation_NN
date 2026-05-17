@@ -1,291 +1,180 @@
 # Autonomous Terrain Relative Navigation (TRN) System
 
-## Overview
-
-This project implements an Autonomous Terrain Relative Navigation (TRN) and Safe Landing Analysis System using YOLOv8-based crater detection, spatial reasoning, landing suitability analysis, and pseudo-3D terrain reconstruction.
-
-The system detects craters from planetary surface imagery, estimates crater geometry and depth, evaluates safe landing regions, and reconstructs a synthetic 3D terrain surface for autonomous landing analysis.
+> End-to-end computer vision pipeline for autonomous spacecraft descent — detects lunar/planetary surface craters via a fine-tuned YOLO model and dynamically evaluates safe landing zones through multi-factor topographic scoring.
 
 ---
 
-# Features
+## Pipeline Architecture
 
-- YOLOv8-based crater detection
-- Crater depth estimation
-- Spatial reasoning between craters
-- Crater distance analysis
-- Safe landing site selection
-- Landing suitability heatmap generation
-- Pseudo-3D terrain reconstruction
-- Automatic output folder generation with timestamps
-- Research-oriented modular architecture
-
----
-
-# System Pipeline
-
-```text
-Input Terrain Image
-        ↓
-YOLOv8 Crater Detection
-        ↓
-Crater Geometry Extraction
-        ↓
-Depth Estimation
-        ↓
-Spatial Reasoning
-        ↓
-Landing Suitability Analysis
-        ↓
-Best Landing Point Selection
-        ↓
-3D Terrain Reconstruction
+```
+[Raw Descent Frame]
+        │
+        ▼
+[Neural Detector — YOLO]
+        │
+        ├──────────────────────────────────────┐
+        ▼                                      ▼
+[Euclidean Distance               [Landing Hazard Assessment]
+ Triangulation]                               │
+        │                                      ▼
+        ▼                         [Coarse-to-Fine Scoring Search]
+[Constellation                                │
+ Tracking Graph]                              ▼
+                              [Optimal Landing Point Selection]
 ```
 
+1. **Neural Hazard Recognition** — `NeuralDetector` extracts crater boundaries, centroids $(c_x, c_y)$, diameters, and confidence scores via YOLO inference with NMS post-filtering.
+2. **Depth Estimation** — Translates 2D bounding geometry into physical hazard depth estimates: $d = 0.15 \cdot \text{diameter} + 0.02 \cdot \sqrt{\text{diameter}}$
+3. **Circular Density Matrix** — Vectorized coordinate meshes build spatial risk fields using true circular crater footprints.
+4. **Adaptive Suitability Scoring** — Dual-pass coarse→fine grid search scores every candidate point across five normalised terms (clearance, centrality, density, smoothness, slope) within a 40 px safety buffer.
+5. **Telemetry Visualisation** — Produces 3D terrain reconstructions, suitability heatmaps, density maps, and triangulation graphs.
+
 ---
 
-# Project Structure
+## Visual Outputs
 
-```text
-TRN/
-│
+| File | Description |
+|---|---|
+| `terrain_3d.png` | Gaussian depression surface with 3D location pin at landing point |
+| `heatmap.png` | Safety score field (red = hazardous → green = optimal) with annotated landing marker |
+| `density_map.png` | Circular crater footprint overlay showing hazard cluster density |
+| `distances.png` | Euclidean linkage graph between top-5 confidence crater centroids |
+| `localization.png` | Raw descent image with detected craters and landing point marked |
+| `report.txt` | Structured metrics: landing point, score, confidence statistics |
+
+---
+
+## Repository Structure
+
+```
+Terrain_Navigation_NN/
+├── Main.py                     # Pipeline entry point
+├── requirements.txt            # Dependency manifest
+├── best.pt                     # Fine-tuned YOLO weights
 ├── data/
-│   ├── TRN/
-│   └── reference_preprocessed/
-│
-├── outputs/
-│   ├── sample/
-│   │    ├── localization.png
-│   │    ├── distances.png
-│   │    ├── heatmap.png
-│   │    └── terrain_3d.png
-│   │
-│   └── 2026-05-16_14-40-00/
-│        ├── localization.png
-│        ├── distances.png
-│        ├── heatmap.png
-│        └── terrain_3d.png
-│
-├── src/
-│   ├── Crater.py
-│   ├── NeuralNetwork.py
-│   ├── Preprocessor.py
-│   ├── TerrainNavigator.py
-│   └── LandingSystem.py
-│
-├── best.pt
-├── crater.yaml
-├── Main.py
-├── train.py
-└── README.md
+│   └── TRN/
+│       ├── ReferenceMap.ppm    # Reference terrain map
+│       └── Scene4.ppm          # Sample descent image
+└── src/
+    ├── __init__.py
+    ├── Crater.py               # Crater data class (centerpoint, diameter, depth, radius)
+    ├── ExperimentLogger.py     # Append-mode text report writer
+    ├── LandingSystem.py        # Scoring functions and coarse-to-fine optimizer
+    ├── NeuralNetwork.py        # YOLO inference, NMS, depth estimation
+    ├── Preprocessor.py         # Centerpoint extraction utilities
+    └── TerrainNavigator.py     # Pipeline orchestrator and visualisation engine
 ```
 
 ---
 
-# Core Technologies
+## Installation
 
-- Python
-- YOLOv8
-- Ultralytics
-- NumPy
-- Pillow (PIL)
-- Matplotlib
-
----
-
-# Dataset
-
-Dataset used:
-
-Martian & Lunar Crater Detection Dataset (Kaggle)
-
-Dataset Link:
-https://www.kaggle.com/datasets/lincolnzh/martianlunar-crater-detection-dataset
-
-Dataset Configuration:
-
-```yaml
-train: craters/train/images
-val: craters/valid/images
-
-nc: 1
-names: ["crater"]
-```
-
----
-
-# Model Details
-
-## Detection Model
-
-- Model: YOLOv8
-- Task: Crater Detection
-- Output:
-  - Bounding boxes
-  - Confidence scores
-  - Crater center points
-
----
-
-# Depth Estimation
-
-Crater depth is estimated empirically using:
-
-```python
-Depth = 0.15 × Diameter
-```
-
-This produces approximate crater depressions for terrain reconstruction.
-
----
-
-# Landing Site Selection Logic
-
-The landing system evaluates:
-
-- Minimum crater clearance
-- Average global crater clearance
-- Local crater density
-
-Landing score:
-
-```python
-score = (
-    3.0 * min_clearance
-    + 1.5 * avg_clearance
-    - 4.0 * density
-)
-```
-
-The highest scoring region is selected as the safest landing point.
-
----
-
-# Output Visualizations
-
-## 1. Crater Localization
-
-Detected craters with estimated depth labels.
-
-```markdown
-![Localization](outputs/localization.png)
-```
-
----
-
-## 2. Crater Distance Analysis
-
-Distances between detected craters.
-
-```markdown
-![Distances](outputs/distances.png)
-```
-
----
-
-## 3. Landing Suitability Heatmap
-
-Heatmap showing safe and unsafe landing regions.
-
-- Red → safer regions
-- Blue → hazardous crater regions
-- Black X → optimal landing point
-
-```markdown
-![Heatmap](outputs/heatmap.png)
-```
-
----
-
-## 4. 3D Terrain Reconstruction
-
-Pseudo-3D terrain generated using crater depth estimation.
-
-- Blue depressions → deeper craters
-- Elevated terrain → safer landing regions
-- Red X → selected landing site
-
-```markdown
-![3D Terrain](outputs/terrain_3d.png)
-```
-
----
-
-# Running the Project
-
-## Install dependencies
+**Requirements:** Python 3.8+
 
 ```bash
-pip install ultralytics numpy pillow matplotlib
+# 1. Clone the repository
+git clone https://github.com/Seagull28/Terrain_Navigation_NN.git
+cd Terrain_Navigation_NN
+
+# 2. Create and activate a virtual environment
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# macOS / Linux
+source venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
 ```
 
 ---
 
-## Run the system
+## Usage
 
 ```bash
-py Main.py
+python Main.py
 ```
 
----
+Outputs are saved automatically to a timestamped folder:
 
-# Output Structure
-
-Each run automatically creates a timestamped output folder.
-
-Example:
-
-```text
+```
 outputs/
-   └── 2026-05-16_14-40-00/
-         ├── localization.png
-         ├── distances.png
-         ├── heatmap.png
-         └── terrain_3d.png
+└── 2026-05-17_21-14-00/
+    ├── report.txt
+    ├── heatmap.png
+    ├── terrain_3d.png
+    ├── density_map.png
+    ├── distances.png
+    └── localization.png
 ```
 
 ---
 
-# Research Contributions
+## Sample Output
 
-- Terrain-relative navigation using visual perception
-- Autonomous safe landing analysis
-- Spatial crater reasoning
-- Terrain reconstruction from detected crater geometry
-- Research-oriented modular navigation pipeline
+```
+📁 Saving outputs to: outputs/2026-05-17_21-14-00
+🧠 NN detected craters: 14
+🧠 NN filtered craters: 12
 
----
+⚠️  DETECTION ANALYSIS
+----------------------
+Small Craters        : 0
+Low Confidence (<0.8): 5
 
-# Future Improvements
+🎯 LANDING ANALYSIS
+----------------------
+Best Landing Point         : (270, 280)
+Landing Score              : 2.9076
+Distance from nearest rim  : 54.21 px
 
-## Phase 1
-- Multi-class terrain detection
-- Rock and obstacle detection
-
-## Phase 2
-- Stereo depth estimation
-- Real elevation mapping
-
-## Phase 3
-- SLAM integration
-- Multi-frame terrain tracking
-
-## Phase 4
-- UAV autonomous path planning
-- Real-time navigation support
+PERFORMANCE METRICS
+----------------------
+Total Craters Detected: 12
+Average Confidence: 0.818
+Maximum Confidence: 0.885
+Minimum Confidence: 0.707
+```
 
 ---
 
-# Applications
+## Landing Scoring Function
 
-- Planetary landing systems
-- Mars/Lunar terrain analysis
-- UAV landing zone analysis
-- Autonomous navigation research
-- Aerospace AI systems
+The suitability score at each candidate point is computed as:
+
+$$\text{Score} = 5.0 \cdot \hat{d}_{min} + 3.0 \cdot C_{central} - 4.0 \cdot \hat{\rho} - 2.0 \cdot \hat{s} - 2.0 \cdot \hat{g}$$
+
+| Term | Description |
+|---|---|
+| $\hat{d}_{min}$ | Normalised clearance from nearest crater rim |
+| $C_{central}$ | Centrality reward — peaks at image centre, 0 at corners |
+| $\hat{\rho}$ | Normalised local crater density within 80 px radius |
+| $\hat{s}$ | Normalised terrain smoothness (depth-weighted influence) |
+| $\hat{g}$ | Normalised terrain slope (finite-difference gradient magnitude) |
+
+All terms are scaled to $[0, 1]$ before weighting so no single factor dominates.
 
 ---
 
-# License
+## Dependencies
 
-This project is intended for academic and research purposes.
+```
+ultralytics    # YOLO object detection framework
+numpy          # Vectorised grid computations
+matplotlib     # 3D rendering and heatmap visualisation
+pillow         # Image drawing and annotation
+```
+
+Install via:
+
+```bash
+pip install ultralytics numpy matplotlib pillow
+```
+
+---
+
+## License
+
+MIT License — see `LICENSE` for details.
