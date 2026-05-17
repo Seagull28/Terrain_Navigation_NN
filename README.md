@@ -117,13 +117,15 @@ outputs/
 
 # Output Images
 Localization.png
-<br> <img width="512" height="512" alt="localization" src="https://github.com/user-attachments/assets/c20803c8-8541-4550-ae5a-32b74b050626" /><br>
+<br><img width="512" height="512" alt="localization" src="https://github.com/user-attachments/assets/6a01e6b9-f6c1-4e1d-8db7-dd9bf060d3cf" /><br>
 Distances.png
-<br> <img width="512" height="512" alt="distances" src="https://github.com/user-attachments/assets/7adb6b97-7b21-466c-ba85-c2b9643ae7d8" /><br>
+<br><img width="512" height="512" alt="distances" src="https://github.com/user-attachments/assets/8dac864c-b0b6-4962-8b90-06c98d27af76" /><br>
 Heatmap.png
-<br> <img width="512" height="512" alt="heatmap" src="https://github.com/user-attachments/assets/b56e6fc4-5782-412e-bf78-30a6842d8e06" /><br>
+<br><img width="2031" height="1907" alt="heatmap" src="https://github.com/user-attachments/assets/f9057460-0ec4-44c2-bf40-44d8438908f4" /><br>
 terrain_3d.png
-<br> <img width="512" height="512" alt="terrain_3d" src="https://github.com/user-attachments/assets/a6fddb3c-673a-4083-a8dc-8aeda6f230b8" /><br>
+<br><img width="3149" height="2683" alt="terrain_3d" src="https://github.com/user-attachments/assets/782f31d1-955c-4c45-b176-123fd243cd1c" /><br>
+density_map.png
+<br><img width="2022" height="1950" alt="density_map" src="https://github.com/user-attachments/assets/c2901ae2-6899-4753-a1d8-88a07123bc3a" /><br>
 
 
 ## Sample Output
@@ -189,6 +191,22 @@ pip install ultralytics numpy matplotlib pillow
 
 ---
 
-## License
+##  License & Citation
 
-MIT License — see `LICENSE` for details.
+### License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. You are free to modify, distribute, and build upon this software for academic, research, or personal applications provided the original copyright notice remains intact.
+
+### Citation
+If you use this autonomous navigation pipeline, the neural crater detection framework, or the topographical safety estimation algorithms in your research or academic publications, please cite the repository as follows:
+
+```bibtex
+@misc{trn_navigation_nn_2026,
+  author       = {Thanujha Yadav},
+  title        = {Autonomous Terrain Relative Navigation (TRN) System using Neural Crater Detection},
+  year         = {2026},
+  publisher    = {GitHub},
+  journal      = {GitHub Repository},
+  howpublished = {\url{[https://github.com/Seagull28/Terrain_Navigation_NN](https://github.com/Seagull28/Terrain_Navigation_NN)}}
+}
+
+
