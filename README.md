@@ -7,20 +7,27 @@
 ## Pipeline Architecture
 
 ```
-[Raw Descent Frame]
-        │
-        ▼
-[Neural Detector — YOLO]
-        │
-        ├──────────────────────────────────────┐
-        ▼                                      ▼
-[Euclidean Distance               [Landing Hazard Assessment]
- Triangulation]                               │
-        │                                      ▼
-        ▼                         [Coarse-to-Fine Scoring Search]
-[Constellation                                │
- Tracking Graph]                              ▼
-                              [Optimal Landing Point Selection]
+                [Raw Descent Frame]
+                           │
+                           ▼
+                [YOLOv8 Crater Detection]
+                           │
+        ┌──────────────────┴──────────────────┐
+        ▼                                     ▼
+[Spatial Crater Analysis]         [Terrain Hazard Modeling]
+        │                                     │
+        ▼                                     ▼
+[Distance & Geometry Graph]     [Landing Safety Heatmap]
+        │                                     │
+        └──────────────────┬──────────────────┘
+                           ▼
+             [Coarse-to-Fine Landing Search]
+                           │
+                           ▼
+            [Optimal Landing Point Selection]
+                           │
+                           ▼
+              [3D Terrain Reconstruction]
 ```
 
 1. **Neural Hazard Recognition** — `NeuralDetector` extracts crater boundaries, centroids $(c_x, c_y)$, diameters, and confidence scores via YOLO inference with NMS post-filtering.
@@ -117,14 +124,20 @@ outputs/
 
 # Output Images
 Localization.png
-<br> <img width="512" height="512" alt="localization" src="https://github.com/user-attachments/assets/c20803c8-8541-4550-ae5a-32b74b050626" /><br>
+<br> <img width="512" height="512" alt="localization" src="https://github.com/user-attachments/assets/7a5b821a-9ac9-489f-b09b-f7036013f521" />
+<br>
 Distances.png
-<br> <img width="512" height="512" alt="distances" src="https://github.com/user-attachments/assets/7adb6b97-7b21-466c-ba85-c2b9643ae7d8" /><br>
+<br><img width="512" height="512" alt="distances" src="https://github.com/user-attachments/assets/bad16cfa-9337-4321-bd62-63a62a7de992" />
+ <br>
 Heatmap.png
-<br> <img width="512" height="512" alt="heatmap" src="https://github.com/user-attachments/assets/b56e6fc4-5782-412e-bf78-30a6842d8e06" /><br>
+<br><img width="2031" height="1907" alt="heatmap" src="https://github.com/user-attachments/assets/4b9a7577-7b27-4792-90a7-a1beffe1cb8a" />
+ <br>
 terrain_3d.png
-<br> <img width="512" height="512" alt="terrain_3d" src="https://github.com/user-attachments/assets/a6fddb3c-673a-4083-a8dc-8aeda6f230b8" /><br>
-
+<br><img width="3149" height="2683" alt="terrain_3d" src="https://github.com/user-attachments/assets/c1374507-d1d1-4be9-b682-6970dfb0c004" />
+<br>
+density_map.png
+<br><img width="2022" height="1950" alt="density_map" src="https://github.com/user-attachments/assets/26987673-99f6-401d-87e5-bbbde1380ee2" />
+<br>
 
 ## Sample Output
 
@@ -189,6 +202,20 @@ pip install ultralytics numpy matplotlib pillow
 
 ---
 
-## License
+## License & Citation
 
-MIT License — see `LICENSE` for details.
+### License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. You are free to modify, distribute, and build upon this software for academic, research, or personal applications provided the original copyright notice remains intact.
+
+### Citation
+If you use this autonomous navigation pipeline, the neural crater detection framework, or the topographical safety estimation algorithms in your research or academic publications, please cite the repository as follows:
+
+```bibtex
+@misc{trn_navigation_nn_2026,
+  author       = {Thanujha Yadav},
+  title        = {Autonomous Terrain Relative Navigation (TRN) System using Neural Crater Detection},
+  year         = {2026},
+  publisher    = {GitHub},
+  journal      = {GitHub Repository},
+  howpublished = {\url{[https://github.com/Seagull28/Terrain_Navigation_NN](https://github.com/Seagull28/Terrain_Navigation_NN)}}
+}
