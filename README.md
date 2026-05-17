@@ -245,6 +245,20 @@ outputs/
 ```
 
 ---
+# Input Image
+<br> <img width="512" height="512" alt="Scene1" src="https://github.com/user-attachments/assets/461407a6-8112-401d-90ab-29d4ad5efe39" /><br>
+
+
+# Output Images
+Localization.png
+<br> <img width="512" height="512" alt="localization" src="https://github.com/user-attachments/assets/c20803c8-8541-4550-ae5a-32b74b050626" /><br>
+Distances.png
+<br> <img width="512" height="512" alt="distances" src="https://github.com/user-attachments/assets/7adb6b97-7b21-466c-ba85-c2b9643ae7d8" /><br>
+Heatmap.png
+<br> <img width="512" height="512" alt="heatmap" src="https://github.com/user-attachments/assets/b56e6fc4-5782-412e-bf78-30a6842d8e06" /><br>
+terrain_3d.png
+<br> <img width="512" height="512" alt="terrain_3d" src="https://github.com/user-attachments/assets/a6fddb3c-673a-4083-a8dc-8aeda6f230b8" /><br>
+
 
 # Research Contributions
 
