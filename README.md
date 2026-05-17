@@ -7,20 +7,27 @@
 ## Pipeline Architecture
 
 ```
-[Raw Descent Frame]
-        │
-        ▼
-[Neural Detector — YOLO]
-        │
-        ├──────────────────────────────────────┐
-        ▼                                      ▼
-[Euclidean Distance               [Landing Hazard Assessment]
- Triangulation]                               │
-        │                                      ▼
-        ▼                         [Coarse-to-Fine Scoring Search]
-[Constellation                                │
- Tracking Graph]                              ▼
-                              [Optimal Landing Point Selection]
+                [Raw Descent Frame]
+                           │
+                           ▼
+                [YOLOv8 Crater Detection]
+                           │
+        ┌──────────────────┴──────────────────┐
+        ▼                                     ▼
+[Spatial Crater Analysis]         [Terrain Hazard Modeling]
+        │                                     │
+        ▼                                     ▼
+[Distance & Geometry Graph]     [Landing Safety Heatmap]
+        │                                     │
+        └──────────────────┬──────────────────┘
+                           ▼
+             [Coarse-to-Fine Landing Search]
+                           │
+                           ▼
+            [Optimal Landing Point Selection]
+                           │
+                           ▼
+              [3D Terrain Reconstruction]
 ```
 
 1. **Neural Hazard Recognition** — `NeuralDetector` extracts crater boundaries, centroids $(c_x, c_y)$, diameters, and confidence scores via YOLO inference with NMS post-filtering.
