@@ -54,7 +54,7 @@ class Navigator:
             # Crater centre dot
             draw.ellipse((x-2, y-2, x+2, y+2), fill='red')
 
-            # Label: depth (1 dp)
+            # Label: depth
             draw.text(
                 (x + 5, y + 5),
                 f"d={crater.depth:.1f}",
@@ -111,7 +111,7 @@ class Navigator:
         return im
 
     # ----------------------------------------
-    # MAIN PIPELINE (UPDATED FOR STREAMLIT FLOW)
+    # MAIN PIPELINE
     # ----------------------------------------
     def locateDescentImageInReferenceImage(self, imagename):
         """
@@ -136,7 +136,7 @@ class Navigator:
         print(f"Small Craters        : {small_craters}")
         print(f"Low Confidence (<0.8): {low_confidence}")
 
-        # ---- Landing analysis (Returns figures directly) ----
+        # ---- Landing analysis ----
         best_point, landing_score, fig_heatmap, fig_density = self.analyzeLandingSafety(
             im, descentImageCraters
         )
@@ -163,19 +163,20 @@ class Navigator:
         self.drawCraterDistances(descentImageCraters)
 
         print(f"\n✅ Localization complete — best landing point: {tuple(best_point)}")
-        
-        # Streamlit unpack target return sequence
         return best_point, fig_heatmap, fig_density, fig_3d, im_localization
 
     # ----------------------------------------
     # LANDING HEATMAP + DENSITY MAP
     # ----------------------------------------
     def analyzeLandingSafety(self, im, descentImageCraters):
-
         img_array = np.array(im)
         landing   = LandingSystem(img_array.shape)
 
-        best_point, score = landing.find_best_landing_point(descentImageCraters)
+        best_point_raw, score = landing.find_best_landing_point(descentImageCraters)
+        
+        # --- Typecast NumPy Ints to Native Python standard types for Matplotlib ---
+        best_point = np.array([int(best_point_raw[0]), int(best_point_raw[1])])
+
         distance = landing.distance_to_nearest_crater(best_point, descentImageCraters)
 
         print("\n🎯 LANDING ANALYSIS")
@@ -222,7 +223,7 @@ class Navigator:
 
         heatmap_path = os.path.join(self.output_dir, "heatmap.png")
         fig.savefig(heatmap_path, dpi=300, bbox_inches='tight')
-        print(f"🖼️  Saved: {heatmap_path}")
+        plt.close(fig)
 
         # ---- Upgraded Circular Density map ----
         density_map = np.zeros((landing.height, landing.width), dtype=float)
@@ -248,7 +249,7 @@ class Navigator:
 
         density_path = os.path.join(self.output_dir, "density_map.png")
         fig2.savefig(density_path, dpi=300, bbox_inches='tight')
-        print(f"🖼️  Saved upgraded circular density map: {density_path}")
+        plt.close(fig2)
 
         return best_point, score, fig, fig2
 
@@ -289,12 +290,12 @@ class Navigator:
         z_head      = max(abs(Z.min()) * 0.20, 3.0)
         theta_full  = np.linspace(0, 2 * np.pi, 100)
 
-        ax.plot([bx_img, bx_img], [by_img, by_img], [z_surface, z_head], color='crimson', linewidth=4, solid_capstyle='round', zorder=10, label='Landing Point')
+        ax.plot([bx_img, bx_img], [by_img, by_img], [z_surface, z_head], color='crimson', linewidth=4, solid_capstyle='round', zorder=10)
         ax.scatter([bx_img], [by_img], [z_head], color='crimson', s=250, edgecolors='white', linewidths=2, zorder=11)
         ax.text(bx_img, by_img, z_head + 1.0, f'  Landing\n({int(best_point[1])}, {int(best_point[0])})', color='crimson', fontsize=9, fontweight='bold', ha='center', va='bottom', zorder=12)
 
         shadow_r = 15
-        ax.plot(bx_img + shadow_r * np.cos(theta_full), by_img + shadow_r * np.sin(theta_full), np.full(100, z_surface + 0.15), color='crimson', linewidth=2, linestyle='--', alpha=0.8, zorder=10, label='Landing Safety Radius')
+        ax.plot(bx_img + shadow_r * np.cos(theta_full), by_img + shadow_r * np.sin(theta_full), np.full(100, z_surface + 0.15), color='crimson', linewidth=2, linestyle='--', alpha=0.8, zorder=10)
 
         ax.view_init(elev=35, azim=-120)
         ax.set_box_aspect([1, 1, 0.25])
@@ -303,7 +304,6 @@ class Navigator:
         ax.set_ylabel("Y Coordinate", labelpad=10)
         ax.set_zlabel("Elevation", labelpad=8)
         ax.tick_params(axis='z', pad=5)
-        ax.legend(loc='upper right', fontsize=9)
 
         fig.colorbar(surf, shrink=0.45, aspect=10, label='Terrain Elevation')
 
@@ -313,4 +313,5 @@ class Navigator:
         if os.environ.get("DISPLAY") or os.environ.get("MPLBACKEND", "").lower() == "tkagg":
             plt.show()
 
+        plt.close(fig)
         return fig

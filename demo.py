@@ -60,7 +60,7 @@ for idx, (label, path) in enumerate(SAMPLES.items()):
     with cols[idx]:
         if os.path.exists(path):
             thumb = Image.open(path).resize((150, 150))
-            st.image(thumb, caption=label, use_container_width=False)
+            st.image(thumb, caption=label, width=150)
             if st.button(f"Select Frame {chr(65+idx)}", key=f"btn_{idx}"):
                 st.session_state.selected_image = path
         else:
@@ -76,6 +76,7 @@ with col_upload:
 # Assign final target path (Upload takes priority over sample buttons)
 if uploaded_file is not None:
     temp_path = os.path.join("data", "TRN", "temp_upload" + os.path.splitext(uploaded_file.name)[1])
+    os.makedirs(os.path.dirname(temp_path), exist_ok=True)
     with open(temp_path, "wb") as f:
         f.write(uploaded_file.getbuffer())
     target_image = temp_path
@@ -106,7 +107,9 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             # 2. Execute and return our in-memory figures from src/TerrainNavigator.py
             best_point, fig_heatmap, fig_density, fig_3d, im_localization = navigator.locateDescentImageInReferenceImage(target_image)
             
-            st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{tuple(best_point)}**")
+            # Convert values safely for text display strings
+            safe_coords = (int(best_point[0]), int(best_point[1]))
+            st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{safe_coords}**")
             
             # --- Visual Output Matrix Layout ---
             st.markdown("### 📊 Generated Telemetry Maps")
@@ -117,7 +120,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 st.pyplot(fig_heatmap)
                     
                 st.markdown("#### 🔲 Object Localization Overlay")
-                st.image(im_localization, use_container_width=True)
+                st.image(im_localization, width=None)
                     
             with tab2:
                 st.markdown("#### ⛰️ 3D Surface Reconstruction")
