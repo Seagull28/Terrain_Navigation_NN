@@ -33,10 +33,9 @@ class Navigator:
     def drawDescentImageOnReferenceImage(self, best_point, descentImageCraters):
         """
         Overlay detected craters and the best landing point
-        on the raw descent image.
-        `best_point` is the authoritative landing location (y, x).
+        on the raw descent image. Returns the finalized PIL Image object.
         """
-        im   = Image.open(self.currentDescentImage)
+        im   = Image.open(self.currentDescentImage).convert("RGB")
         draw = ImageDraw.Draw(im)
 
         craters_sorted = sorted(
@@ -55,7 +54,7 @@ class Navigator:
             # Crater centre dot
             draw.ellipse((x-2, y-2, x+2, y+2), fill='red')
 
-            # Label: depth (1 dp) only — confidence shown separately
+            # Label: depth (1 dp)
             draw.text(
                 (x + 5, y + 5),
                 f"d={crater.depth:.1f}",
@@ -72,13 +71,14 @@ class Navigator:
         path = os.path.join(self.output_dir, "localization.png")
         im.save(path)
         print(f"🖼️  Saved: {path}")
+        return im
 
     # ----------------------------------------
     # DRAW DISTANCE MAP
     # ----------------------------------------
     def drawCraterDistances(self, descentImageCraters):
-        """Connect the top-5 craters by confidence with distance labels."""
-        im   = Image.open(self.currentDescentImage)
+        """Connect the top-5 craters by confidence with distance labels. Returns PIL Image."""
+        im   = Image.open(self.currentDescentImage).convert("RGB")
         draw = ImageDraw.Draw(im)
 
         craters = sorted(
@@ -108,14 +108,17 @@ class Navigator:
         path = os.path.join(self.output_dir, "distances.png")
         im.save(path)
         print(f"🖼️  Saved: {path}")
+        return im
 
     # ----------------------------------------
-    # MAIN PIPELINE
+    # MAIN PIPELINE (UPDATED FOR STREAMLIT FLOW)
     # ----------------------------------------
     def locateDescentImageInReferenceImage(self, imagename):
-
+        """
+        Runs the full TRN pipeline.
+        Returns: best_point, fig_heatmap, fig_density, fig_3d, im_localization
+        """
         self.currentDescentImage = imagename
-
         im = Image.open(imagename)
 
         descentImageCraters = self.detector.detectCratersNN(im)
@@ -133,12 +136,12 @@ class Navigator:
         print(f"Small Craters        : {small_craters}")
         print(f"Low Confidence (<0.8): {low_confidence}")
 
-        # ---- Landing analysis ----
-        best_point, landing_score = self.analyzeLandingSafety(
+        # ---- Landing analysis (Returns figures directly) ----
+        best_point, landing_score, fig_heatmap, fig_density = self.analyzeLandingSafety(
             im, descentImageCraters
         )
 
-        # ---- Report (Fix 1: Explicitly Cast to standard Python ints) ----
+        # ---- Report Logging ----
         crater_scores  = [c.score for c in descentImageCraters.values()]
         avg_confidence = np.mean(crater_scores)
         max_confidence = np.max(crater_scores)
@@ -154,13 +157,15 @@ class Navigator:
         self.logger.log(f"Maximum Confidence: {round(max_confidence, 3)}")
         self.logger.log(f"Minimum Confidence: {round(min_confidence, 3)}")
 
-        # ---- Visualisations ----
-        self.generate3DTerrainMap(descentImageCraters, best_point)
-        self.drawDescentImageOnReferenceImage(best_point, descentImageCraters)
+        # ---- Visualisations Generation ----
+        fig_3d = self.generate3DTerrainMap(descentImageCraters, best_point)
+        im_localization = self.drawDescentImageOnReferenceImage(best_point, descentImageCraters)
         self.drawCraterDistances(descentImageCraters)
 
         print(f"\n✅ Localization complete — best landing point: {tuple(best_point)}")
-        return best_point
+        
+        # Streamlit unpack target return sequence
+        return best_point, fig_heatmap, fig_density, fig_3d, im_localization
 
     # ----------------------------------------
     # LANDING HEATMAP + DENSITY MAP
@@ -171,7 +176,6 @@ class Navigator:
         landing   = LandingSystem(img_array.shape)
 
         best_point, score = landing.find_best_landing_point(descentImageCraters)
-
         distance = landing.distance_to_nearest_crater(best_point, descentImageCraters)
 
         print("\n🎯 LANDING ANALYSIS")
@@ -184,24 +188,15 @@ class Navigator:
 
         # ---- Heatmap figure ----
         fig, ax = plt.subplots(figsize=(8, 8))
-
         img = ax.imshow(heatmap, cmap='RdYlGn', origin='upper')
         fig.colorbar(img, ax=ax, label="Landing Score (higher = safer)")
-
         ax.set_title("Landing Suitability Heatmap", fontsize=16, fontweight='bold')
 
         x_best = int(best_point[1])
         y_best = int(best_point[0])
 
-        # Best landing point marker — (Fix 2: label= removed to prevent legend boxing)
-        ax.scatter(
-            x_best, y_best,
-            marker='x', s=300, c='black', linewidths=3,
-            zorder=5
-        )
+        ax.scatter(x_best, y_best, marker='x', s=300, c='black', linewidths=3, zorder=5)
 
-        # Adaptive text annotation arrow layout
-        # Determines displacement depending on which quadrant the pin settles into
         x_offset = -60 if x_best > (landing.width / 2) else 60
         y_offset = -40 if y_best > (landing.height / 2) else 40
 
@@ -218,25 +213,15 @@ class Navigator:
             zorder=6
         )
 
-        # Safety radius circle around best point
-        ax.add_patch(Circle(
-            (x_best, y_best), 40,
-            edgecolor='lime', facecolor='none', linewidth=3, zorder=4
-        ))
+        ax.add_patch(Circle((x_best, y_best), 40, edgecolor='lime', facecolor='none', linewidth=3, zorder=4))
 
-        # Crater boundaries
         for crater in descentImageCraters.values():
             y, x = crater.centerpoint.astype(int)
             r    = int(crater.diameter / 2)
-            ax.add_patch(Circle(
-                (x, y), r,
-                edgecolor='white', facecolor='none',
-                linestyle='--', linewidth=2
-            ))
+            ax.add_patch(Circle((x, y), r, edgecolor='white', facecolor='none', linestyle='--', linewidth=2))
 
         heatmap_path = os.path.join(self.output_dir, "heatmap.png")
         fig.savefig(heatmap_path, dpi=300, bbox_inches='tight')
-        plt.close(fig)
         print(f"🖼️  Saved: {heatmap_path}")
 
         # ---- Upgraded Circular Density map ----
@@ -246,22 +231,14 @@ class Navigator:
             cy, cx = crater.centerpoint
             r = crater.diameter / 2.0
 
-            # 1. Define bounding box bounds clamped to map dimensions
             y_min = max(0, int(np.floor(cy - r)))
             y_max = min(landing.height, int(np.ceil(cy + r)))
             x_min = max(0, int(np.floor(cx - r)))
             x_max = min(landing.width, int(np.ceil(cx + r)))
 
-            # 2. Create localized coordinate grids for the bounding box
             y_indices, x_indices = np.ogrid[y_min:y_max, x_min:x_max]
-
-            # 3. Calculate distance from true crater center
             distance_squared = (x_indices - cx) ** 2 + (y_indices - cy) ** 2
-
-            # 4. Create a boolean mask where pixels fall within the radius
             circular_mask = distance_squared <= (r ** 2)
-
-            # 5. Additively increment only the valid circular area
             density_map[y_min:y_max, x_min:x_max] += circular_mask
 
         fig2, ax2 = plt.subplots(figsize=(8, 8))
@@ -271,22 +248,15 @@ class Navigator:
 
         density_path = os.path.join(self.output_dir, "density_map.png")
         fig2.savefig(density_path, dpi=300, bbox_inches='tight')
-        plt.close(fig2)
         print(f"🖼️  Saved upgraded circular density map: {density_path}")
 
-        return best_point, score
+        return best_point, score, fig, fig2
 
     # ----------------------------------------
     # 3D TERRAIN MAP
     # ----------------------------------------
     def generate3DTerrainMap(self, descentImageCraters, best_point):
-        """
-        Reconstruct a 3-D depth surface from Gaussian crater depressions
-        and mark the chosen landing point at the correct (x, y) location.
-        """
-        from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
-
-        # Use actual image dimensions (capped at 512 for performance)
+        """Reconstructs a 3-D depth surface and returns the active figure object."""
         im_arr = np.array(Image.open(self.currentDescentImage))
         h = min(im_arr.shape[0], 512)
         w = min(im_arr.shape[1], 512)
@@ -295,116 +265,52 @@ class Navigator:
         y = np.arange(0, h)
         X, Y = np.meshgrid(x, y)
 
-        # ---- Build depth surface from crater depressions ----
         Z = np.zeros((h, w))
-
         for crater in descentImageCraters.values():
             cy, cx = crater.centerpoint
             radius = crater.diameter / 2.0
             depth  = crater.depth
 
-            # Clamp centre to grid bounds
             cx = np.clip(cx, 0, w - 1)
             cy = np.clip(cy, 0, h - 1)
 
-            Z -= depth * np.exp(
-                -((X - cx) ** 2 + (Y - cy) ** 2) / (2.0 * radius ** 2)
-            )
+            Z -= depth * np.exp(-((X - cx) ** 2 + (Y - cy) ** 2) / (2.0 * radius ** 2))
 
-        # ---- Landing point in 3-D ----
         by_img = int(np.clip(float(best_point[0]), 0, h - 1))
         bx_img = int(np.clip(float(best_point[1]), 0, w - 1))
         bz     = Z[by_img, bx_img]
 
-        # ---- Figure ----
         fig = plt.figure(figsize=(14, 11))
         ax  = fig.add_subplot(111, projection='3d')
 
-        surf = ax.plot_surface(
-            X, Y, Z,
-            cmap='terrain',
-            linewidth=0,
-            antialiased=True,
-            alpha=0.92,
-            zorder=1
-        )
+        surf = ax.plot_surface(X, Y, Z, cmap='terrain', linewidth=0, antialiased=True, alpha=0.92, zorder=1)
 
-        # ============================================================
-        # LOCATION PIN  — forced to the foreground via zorder
-        # ============================================================
         z_surface   = bz
-        z_head      = abs(Z.min()) * 0.20
-        z_head      = max(z_head, 3.0)
-
+        z_head      = max(abs(Z.min()) * 0.20, 3.0)
         theta_full  = np.linspace(0, 2 * np.pi, 100)
 
-        # --- Vertical pole ---
-        ax.plot(
-            [bx_img, bx_img],
-            [by_img, by_img],
-            [z_surface, z_head],
-            color='crimson',
-            linewidth=4,
-            solid_capstyle='round',
-            zorder=10,
-            label='Landing Point'
-        )
+        ax.plot([bx_img, bx_img], [by_img, by_img], [z_surface, z_head], color='crimson', linewidth=4, solid_capstyle='round', zorder=10, label='Landing Point')
+        ax.scatter([bx_img], [by_img], [z_head], color='crimson', s=250, edgecolors='white', linewidths=2, zorder=11)
+        ax.text(bx_img, by_img, z_head + 1.0, f'  Landing\n({int(best_point[1])}, {int(best_point[0])})', color='crimson', fontsize=9, fontweight='bold', ha='center', va='bottom', zorder=12)
 
-        # --- Pin head: Clean 3D scatter point ---
-        ax.scatter(
-            [bx_img], [by_img], [z_head],
-            color='crimson',
-            s=250,
-            edgecolors='white',
-            linewidths=2,
-            zorder=11
-        )
-
-        # --- Text label directly above pin head ---
-        ax.text(
-            bx_img, by_img, z_head + 1.0,
-            f'  Landing\n({int(best_point[1])}, {int(best_point[0])})',
-            color='crimson',
-            fontsize=9,
-            fontweight='bold',
-            ha='center', va='bottom',
-            zorder=12
-        )
-
-        # --- Shadow ring on the terrain surface ---
         shadow_r = 15
-        ax.plot(
-            bx_img + shadow_r * np.cos(theta_full),
-            by_img + shadow_r * np.sin(theta_full),
-            np.full(100, z_surface + 0.15),
-            color='crimson',
-            linewidth=2,
-            linestyle='--',
-            alpha=0.8,
-            zorder=10,
-            label='Landing Safety Radius'
-        )
+        ax.plot(bx_img + shadow_r * np.cos(theta_full), by_img + shadow_r * np.sin(theta_full), np.full(100, z_surface + 0.15), color='crimson', linewidth=2, linestyle='--', alpha=0.8, zorder=10, label='Landing Safety Radius')
 
-        # ---- Appearance ----
         ax.view_init(elev=35, azim=-120)
         ax.set_box_aspect([1, 1, 0.25])
-
         ax.set_title("3D Terrain Reconstruction", fontsize=18, fontweight='bold')
         ax.set_xlabel("X Coordinate", labelpad=10)
         ax.set_ylabel("Y Coordinate", labelpad=10)
         ax.set_zlabel("Elevation", labelpad=8)
         ax.tick_params(axis='z', pad=5)
-
         ax.legend(loc='upper right', fontsize=9)
 
         fig.colorbar(surf, shrink=0.45, aspect=10, label='Terrain Elevation')
 
-        # ---- Save ----
         path = os.path.join(self.output_dir, "terrain_3d.png")
         fig.savefig(path, dpi=300, bbox_inches='tight')
 
         if os.environ.get("DISPLAY") or os.environ.get("MPLBACKEND", "").lower() == "tkagg":
             plt.show()
 
-        plt.close(fig)
-        print(f"🖼️  Saved 3-D terrain: {path}")
+        return fig
