@@ -20,7 +20,7 @@ st.markdown("""
     div.stButton > button:first-child { background-color: #ff4b4b; color:white; }
     div.stButton > button:hover { background-color: #ff3333; color:white; }
     </style>
-""", unsafe_allowed_html=True)
+""", unsafe_allow_html=True)
 
 # --- Sidebar Inputs ---
 st.sidebar.header("🛰️ Mission Configuration")
