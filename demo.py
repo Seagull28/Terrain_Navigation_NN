@@ -83,7 +83,7 @@ with col_current:
         st.image(Image.open(target_image).resize((120, 120)), caption=os.path.basename(target_image))
 
 # --- Trigger Pipeline Execution ---
-if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=True):
+if st.button("🚀 Execute Autonomous Navigation Sequence", width='stretch'):
     if not os.path.exists(target_image):
         st.error(f"Missing target telemetry data frame at `{target_image}`.")
     else:
@@ -112,7 +112,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 st.pyplot(fig_heatmap)
                     
                 st.markdown("### 🔲 Object Localization Overlay")
-                st.image(im_localization, use_container_width=True)
+                st.image(im_localization, width='stretch')
                     
             with tab2:
                 st.markdown("### ⛰️ 3D Surface Reconstruction")
