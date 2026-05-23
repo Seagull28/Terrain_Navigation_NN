@@ -120,7 +120,8 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 st.pyplot(fig_heatmap)
                     
                 st.markdown("#### 🔲 Object Localization Overlay")
-                st.image(im_localization, width=None)
+                # FIXED: Changed from width=None to use_container_width=True
+                st.image(im_localization, use_container_width=True)
                     
             with tab2:
                 st.markdown("#### ⛰️ 3D Surface Reconstruction")
@@ -128,7 +129,3 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                     
                 st.markdown("#### 🔴 Crater Density Footprint")
                 st.pyplot(fig_density)
-                
-            # 3. Cleanup temp uploads
-            if uploaded_file is not None and os.path.exists(temp_path):
-                os.remove(temp_path)
