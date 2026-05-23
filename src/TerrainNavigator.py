@@ -162,7 +162,7 @@ class Navigator:
         im_localization = self.drawDescentImageOnReferenceImage(best_point, descentImageCraters)
         self.drawCraterDistances(descentImageCraters)
 
-        print(f"\n✅ Localization complete — best landing point: {tuple(best_point)}")
+        print(f"\n✅ Localization complete — best landing point: ({int(best_point[0])}, {int(best_point[1])})")
         return best_point, fig_heatmap, fig_density, fig_3d, im_localization
 
     # ----------------------------------------
@@ -181,7 +181,8 @@ class Navigator:
 
         print("\n🎯 LANDING ANALYSIS")
         print("----------------------")
-        print(f"Best Landing Point         : {tuple(best_point)}")
+        # Force plain Python standard integers for string printing
+        print(f"Best Landing Point         : ({int(best_point[0])}, {int(best_point[1])})")
         print(f"Landing Score              : {round(float(score), 4)}")
         print(f"Distance from nearest rim  : {round(distance, 2)} px")
 
