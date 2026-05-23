@@ -24,37 +24,34 @@ st.markdown("""
 
 # --- Sidebar Inputs ---
 st.sidebar.header("🛰️ Mission Configuration")
-st.sidebar.markdown("Adjust autonomous flight parameters to evaluate crater density fields in real-time.")
+st.sidebar.markdown("Adjust autonomous flight parameters to evaluate crater density fields.")
 
 conf_thresh = st.sidebar.slider("YOLO Confidence Threshold", 0.1, 1.0, 0.70, step=0.05)
 safety_radius = st.sidebar.slider("Landing Buffer Radius (px)", 10, 100, 40, step=5)
 reference_altitude = st.sidebar.number_input("Reference Altitude (m)", value=2000)
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Developed for Autonomous Space Navigation Research.")
+st.sidebar.caption("Autonomous Space Navigation Testbench.")
 
 # --- Main Interface Layout ---
 st.title("🌌 Terrain Relative Navigation (TRN) System")
 st.subheader("Autonomous Surface Hazard Detection & Optimal Landing Site Selection")
-st.markdown("Select a sample telemetry frame below or upload your own to evaluate landing safety zones in real-time.")
+st.markdown("Select a sample telemetry frame below or upload your own to evaluate landing safety zones.")
 
 st.markdown("---")
 
 # --- Interactive Sample Image Selector ---
 st.markdown("### 📸 Select a Reference Telemetry Frame")
 
-# Define your sample library paths
 SAMPLES = {
     "Descent Frame A (Standard)": "data/TRN/Scene4.ppm",
     "Descent Frame B (High Density)": "data/TRN/Scene1.ppm",
     "Descent Frame C (Sparse Crater)": "data/TRN/Scene2.ppm"
 }
 
-# Initialize session state tracking to see what image is active
 if "selected_image" not in st.session_state:
     st.session_state.selected_image = SAMPLES["Descent Frame A (Standard)"]
 
-# Display sample options in a row of columns with thumbnails
 cols = st.columns(len(SAMPLES))
 for idx, (label, path) in enumerate(SAMPLES.items()):
     with cols[idx]:
@@ -63,8 +60,6 @@ for idx, (label, path) in enumerate(SAMPLES.items()):
             st.image(thumb, caption=label, width=150)
             if st.button(f"Select Frame {chr(65+idx)}", key=f"btn_{idx}"):
                 st.session_state.selected_image = path
-        else:
-            st.warning(f"Missing image file at: `{path}`")
 
 st.markdown("---")
 
@@ -73,7 +68,6 @@ col_upload, col_current = st.columns([2, 1])
 with col_upload:
     uploaded_file = st.file_uploader("Or upload your own descent image (.ppm, .png, .jpg)", type=["ppm", "png", "jpg"])
 
-# Assign final target path (Upload takes priority over sample buttons)
 if uploaded_file is not None:
     temp_path = os.path.join("data", "TRN", "temp_upload" + os.path.splitext(uploaded_file.name)[1])
     os.makedirs(os.path.dirname(temp_path), exist_ok=True)
@@ -95,7 +89,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
     else:
         with st.spinner("Processing neural pipeline across tracking mesh matrices..."):
             
-            # 1. Initialize Navigator
             navigator = Navigator(
                 referenceAltitude=reference_altitude,
                 referenceMap="ReferenceMap.ppm",
@@ -104,10 +97,9 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             )
             navigator.detector.conf_threshold = conf_thresh
             
-            # 2. Execute and return our in-memory figures from src/TerrainNavigator.py
+            # Execute and return objects safely
             best_point, fig_heatmap, fig_density, fig_3d, im_localization = navigator.locateDescentImageInReferenceImage(target_image)
             
-            # Convert values safely for text display strings
             safe_coords = (int(best_point[0]), int(best_point[1]))
             st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{safe_coords}**")
             
@@ -116,16 +108,18 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             
             tab1, tab2 = st.columns(2)
             with tab1:
-                st.markdown("#### 🎯 Landing Suitability Heatmap")
+                st.markdown("### 🎯 Landing Suitability Heatmap")
                 st.pyplot(fig_heatmap)
                     
-                st.markdown("#### 🔲 Object Localization Overlay")
-                # FIXED: Changed from width=None to use_container_width=True
+                st.markdown("### 🔲 Object Localization Overlay")
                 st.image(im_localization, use_container_width=True)
                     
             with tab2:
-                st.markdown("#### ⛰️ 3D Surface Reconstruction")
+                st.markdown("### ⛰️ 3D Surface Reconstruction")
                 st.pyplot(fig_3d)
                     
-                st.markdown("#### 🔴 Crater Density Footprint")
+                st.markdown("### 🔴 Crater Density Footprint")
                 st.pyplot(fig_density)
+                
+            if uploaded_file is not None and os.path.exists(temp_path):
+                os.remove(temp_path)
