@@ -73,7 +73,7 @@ cols = st.columns(len(SAMPLES))
 for idx, (label, path) in enumerate(SAMPLES.items()):
     with cols[idx]:
         if os.path.exists(path):
-            thumb = Image.open(path).resize((150, 150))
+            thumb = Image.open(path).resize((100, 100))
             st.image(thumb, caption=label, width='stretch')
             if st.button(f"Select Frame {chr(65+idx)}", key=f"btn_{idx}"):
                 st.session_state.selected_image = path
