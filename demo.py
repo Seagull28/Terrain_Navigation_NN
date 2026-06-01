@@ -38,7 +38,22 @@ st.sidebar.caption("Autonomous Space Navigation Testbench.")
 # --- Main Interface Layout ---
 st.title("🌌 Terrain Relative Navigation (TRN) System")
 st.subheader("Autonomous Surface Hazard Detection & Optimal Landing Site Selection")
-st.markdown("Select a sample telemetry frame below or upload your own to evaluate landing safety zones.")
+
+# --- System Overview Callout Panel ---
+st.markdown("""
+    <div style="background-color: #1e222b; padding: 20px; border-radius: 8px; border-left: 5px solid #ff4b4b; margin-bottom: 25px;">
+        <p style="margin: 0; font-size: 1.1rem; line-height: 1.6; color: #e2e8f0;">
+            This system autonomously identifies safe spacecraft landing zones on planetary surfaces. 
+            <strong>Upload a descent image ➔ YOLO detects craters ➔ a coarse-to-fine scoring algorithm evaluates 5 safety factors ➔ the optimal landing point is selected and visualised across a heatmap, 3D terrain map, and density overlay.</strong>
+        </p>
+        <p style="margin: 10px 0 0 0; font-size: 0.95rem;">
+            🔗 <strong>Source Code & Architecture:</strong> 
+            <a href="https://github.com/Seagull28/Terrain_Navigation_NN" target="_blank" style="color: #ff4b4b; text-decoration: none; font-weight: bold;">
+                github.com/Seagull28/Terrain_Navigation_NN
+            </a>
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -59,7 +74,6 @@ for idx, (label, path) in enumerate(SAMPLES.items()):
     with cols[idx]:
         if os.path.exists(path):
             thumb = Image.open(path).resize((150, 150))
-            # Updated to width='stretch' to ensure clean layout container scaling
             st.image(thumb, caption=label, width='stretch')
             if st.button(f"Select Frame {chr(65+idx)}", key=f"btn_{idx}"):
                 st.session_state.selected_image = path
@@ -100,7 +114,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             )
             navigator.detector.conf_threshold = conf_thresh
             
-            # Execute and return unpacked data matrices cleanly
+            # Execute and return unpacked clean matrix telemetry values
             best_point, fig_heatmap, fig_density, fig_3d, im_localization = navigator.locateDescentImageInReferenceImage(target_image)
             
             safe_coords = (int(best_point[0]), int(best_point[1]))
@@ -115,7 +129,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 st.pyplot(fig_heatmap)
                     
                 st.markdown("### 🔲 Object Localization Overlay")
-                # Updated parameter to bypass Streamlit framework deprecation rules
                 st.image(im_localization, width='stretch')
                     
             with tab2:
