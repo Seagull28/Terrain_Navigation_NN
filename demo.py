@@ -26,17 +26,20 @@ st.markdown("""
 
 # --- Sidebar Inputs ---
 st.sidebar.header("🛰️ Mission Configuration")
-st.sidebar.markdown("Adjust autonomous flight parameters to evaluate crater density fields.")
+# Simplified readability for recruiters/non-technical users
+st.sidebar.markdown("Configure detection sensitivity and safety margins.")
 
 conf_thresh = st.sidebar.slider("YOLO Confidence Threshold", 0.1, 1.0, 0.70, step=0.05)
 safety_radius = st.sidebar.slider("Landing Buffer Radius (px)", 10, 100, 40, step=5)
 reference_altitude = st.sidebar.number_input("Reference Altitude (m)", value=2000)
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Autonomous Space Navigation Testbench.")
+st.sidebar.caption("Autonomous Space Navigation Testbench")
 
 # --- Main Interface Layout ---
 st.title("🌌 Terrain Relative Navigation (TRN) System")
+# Dynamic recruitment signature tag under title header
+st.markdown("🧬 **Developed by:** [@Seagull28](https://github.com/Seagull28) | *Computer Vision & Space Systems Architecture*")
 st.subheader("Autonomous Surface Hazard Detection & Optimal Landing Site Selection")
 
 # --- System Overview Callout Panel ---
