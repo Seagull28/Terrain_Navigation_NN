@@ -73,7 +73,7 @@ cols = st.columns(len(SAMPLES))
 for idx, (label, path) in enumerate(SAMPLES.items()):
     with cols[idx]:
         if os.path.exists(path):
-            thumb = Image.open(path).resize((100, 100))
+            thumb = Image.open(path).resize((150, 150))
             st.image(thumb, caption=label, width='stretch')
             if st.button(f"Select Frame {chr(65+idx)}", key=f"btn_{idx}"):
                 st.session_state.selected_image = path
@@ -137,6 +137,14 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                     
                 st.markdown("### 🔴 Crater Density Footprint")
                 st.pyplot(fig_density)
+                
+                st.markdown("### 📏 Crater Distance Vectors")
+                # Dynamic asset loading step reads directly from active output tracker
+                saved_distance_path = os.path.join(navigator.output_dir, "distances.png")
+                if os.path.exists(saved_distance_path):
+                    st.image(Image.open(saved_distance_path), width='stretch')
+                else:
+                    st.warning("Distance vector map file tracking not found on disk.")
                 
             if uploaded_file is not None and os.path.exists(temp_path):
                 os.remove(temp_path)
