@@ -107,7 +107,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
     else:
         with st.spinner("Processing neural pipeline across tracking mesh matrices..."):
             
-            # Defensive Exception Wrapping
+            # Defensive Exception Wrapping around backend pipeline processing
             try:
                 navigator = Navigator(
                     referenceAltitude=reference_altitude,
@@ -117,27 +117,38 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 )
                 navigator.detector.conf_threshold = conf_thresh
                 
-                # Execute pipeline and collect figures
+                # Execute pipeline and unpack computational map figures
                 best_point, fig_heatmap, fig_density, fig_3d, im_localization = navigator.locateDescentImageInReferenceImage(target_image)
             except Exception as e:
                 st.error(f"🚨 Navigation sequence failed: {e}")
                 st.stop()
             
-            # Cast coordinates safely
+            # Cast coordinates safely to pure integers to avoid array formatting tags in UI
             safe_coords = (int(best_point[0]), int(best_point[1]))
             st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{safe_coords}**")
             
             # --- Navigation Telemetry Summary ---
             st.markdown("### 📋 Navigation Telemetry Summary")
             
+            # Initialize metrics to None to protect against silent reporting errors
             total_craters = None
             avg_conf = None
             landing_score = None
             min_dist = None
 
-            # Case-insensitive report parsing
+            # Dynamic run directory mapping strategy checks active session directories
+            target_run_dir = None
             if hasattr(navigator, 'output_dir') and os.path.exists(navigator.output_dir):
-                log_path = os.path.join(navigator.output_dir, "report.txt")
+                target_run_dir = navigator.output_dir
+            elif os.path.exists("outputs"):
+                # Fallback to scanning for the absolute newest timestamped execution subfolder
+                all_runs = [os.path.join("outputs", d) for d in os.listdir("outputs") if os.path.isdir(os.path.join("outputs", d))]
+                if all_runs:
+                    target_run_dir = max(all_runs, key=os.path.getmtime)
+
+            # Robust case-insensitive text processing logic
+            if target_run_dir and os.path.exists(target_run_dir):
+                log_path = os.path.join(target_run_dir, "report.txt")
                 if os.path.exists(log_path):
                     with open(log_path, "r") as log_file:
                         for line in log_file:
@@ -152,7 +163,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                                 dist_str = line.split(":")[-1].lower().replace("px", "").strip()
                                 min_dist = float(dist_str)
 
-            # Render metric indicators
+            # Generate KPI counters with structured fallback states
             m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
             with m_col1:
                 st.metric(label="Craters Detected", value=f"{total_craters}" if total_craters is not None else "N/A")
@@ -170,6 +181,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             # --- Visual Output Matrix Layout ---
             st.markdown("### 📊 Generated Telemetry Maps")
             
+            # Layout tabs to separate high-dimension graphs and maintain vertical visibility
             tab_landing, tab_terrain, tab_density, tab_vectors = st.tabs([
                 "🎯 Landing Heatmap & Overlay", 
                 "⛰️ 3D Surface Reconstruction", 
@@ -187,30 +199,31 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                     st.image(im_localization, use_container_width=True)
                     
             with tab_terrain:
-                # Constrain view bounds to center column frame to stop giant vertical scrolling
+                # 1-4-1 layout centers plot tightly to block vertical scrolling on large screens
                 _, center_col_3d, _ = st.columns([1, 4, 1])
                 with center_col_3d:
                     st.markdown("### ⛰️ 3D Surface Reconstruction")
                     st.pyplot(fig_3d)
                     
             with tab_density:
-                # Constrain view bounds to center column frame to stop giant vertical scrolling
                 _, center_col_density, _ = st.columns([1, 4, 1])
                 with center_col_density:
                     st.markdown("### 🔴 Crater Density Footprint")
                     st.pyplot(fig_density)
                 
             with tab_vectors:
-                # Constrain view bounds to center column frame to stop giant vertical scrolling
                 _, center_col_vectors, _ = st.columns([1, 4, 1])
                 with center_col_vectors:
                     st.markdown("### 📏 Crater Distance Vectors")
-                    if hasattr(navigator, 'output_dir') and os.path.exists(navigator.output_dir):
-                        saved_distance_path = os.path.join(navigator.output_dir, "distances.png")
+                    if target_run_dir and os.path.exists(target_run_dir):
+                        saved_distance_path = os.path.join(target_run_dir, "distances.png")
                         if os.path.exists(saved_distance_path):
                             st.image(Image.open(saved_distance_path), use_container_width=True)
                         else:
                             st.warning("Distance vector map not generated.")
+                    else:
+                        st.warning("Distance vector map not generated.")
                 
+            # Perform directory file hygiene step
             if uploaded_file is not None and os.path.exists(temp_path):
                 os.remove(temp_path)
