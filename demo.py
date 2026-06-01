@@ -121,18 +121,30 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             safe_coords = (int(best_point[0]), int(best_point[1]))
             st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{safe_coords}**")
             
-            # --- NEW: Quantified Telemetry Report Summary Row ---
+            # --- Visual Output Matrix Layout ---
             st.markdown("### 📋 Navigation Telemetry Summary")
             
-            # Read variables or compute distributions directly for the UI presentation layer
-            crater_scores = [c.score for c in navigator.currentDescentCraters.values()] if hasattr(navigator, 'currentDescentCraters') else [0.82]
-            avg_conf = np.mean(crater_scores) if crater_scores else 0.82
-            total_craters = len(crater_scores) if crater_scores else 12
-            
-            # We look up landing score and distance from the navigator attributes or default safely
-            landing_score = getattr(navigator, 'latest_landing_score', 2.91)
-            min_dist = getattr(navigator, 'latest_min_distance', 54.0)
+            # FIXED: Safely read tracking array indicators explicitly from backend logger structures
+            total_craters = 0
+            avg_conf = 0.00
+            landing_score = 0.00
+            min_dist = 0.00
 
+            # Scan log file to extract real calculations directly from the output stream
+            log_path = os.path.join(navigator.output_dir, "report.txt")
+            if os.path.exists(log_path):
+                with open(log_path, "r") as log_file:
+                    for line in log_file:
+                        if "Total Craters Detected:" in line:
+                            total_craters = int(line.split(":")[-1].strip())
+                        elif "Average Confidence:" in line:
+                            avg_conf = float(line.split(":")[-1].strip())
+                        elif "Landing Score:" in line:
+                            landing_score = float(line.split(":")[-1].strip())
+                        elif "Distance from nearest rim" in line:
+                            min_dist = float(line.split(":")[-1].strip().replace("px", ""))
+
+            # Output calibrated real-time data card configurations
             m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
             with m_col1:
                 st.metric(label="Craters Detected", value=f"{total_craters}")
@@ -166,7 +178,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 st.pyplot(fig_density)
                 
                 st.markdown("### 📏 Crater Distance Vectors")
-                # Dynamic asset loading step reads directly from active output tracker
                 saved_distance_path = os.path.join(navigator.output_dir, "distances.png")
                 if os.path.exists(saved_distance_path):
                     st.image(Image.open(saved_distance_path), width='stretch')
