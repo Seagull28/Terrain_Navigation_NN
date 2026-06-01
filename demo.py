@@ -124,27 +124,27 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             # --- Visual Output Matrix Layout ---
             st.markdown("### 📋 Navigation Telemetry Summary")
             
-            # FIXED: Safely read tracking array indicators explicitly from backend logger structures
             total_craters = 0
             avg_conf = 0.00
             landing_score = 0.00
             min_dist = 0.00
 
-            # Scan log file to extract real calculations directly from the output stream
+            # FIX: Robust, case-insensitive log checking loop prevents missed string indicators
             log_path = os.path.join(navigator.output_dir, "report.txt")
             if os.path.exists(log_path):
                 with open(log_path, "r") as log_file:
                     for line in log_file:
-                        if "Total Craters Detected:" in line:
+                        line_lower = line.lower()
+                        if "total craters detected:" in line_lower:
                             total_craters = int(line.split(":")[-1].strip())
-                        elif "Average Confidence:" in line:
+                        elif "average confidence:" in line_lower:
                             avg_conf = float(line.split(":")[-1].strip())
-                        elif "Landing Score:" in line:
+                        elif "landing score:" in line_lower:
                             landing_score = float(line.split(":")[-1].strip())
-                        elif "Distance from nearest rim" in line:
-                            min_dist = float(line.split(":")[-1].strip().replace("px", ""))
+                        elif "distance from nearest rim" in line_lower:
+                            min_dist = float(line.split(":")[-1].strip().lower().replace("px", ""))
 
-            # Output calibrated real-time data card configurations
+            # Output calibrated real-time data metrics row
             m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
             with m_col1:
                 st.metric(label="Craters Detected", value=f"{total_craters}")
@@ -180,7 +180,8 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 st.markdown("### 📏 Crater Distance Vectors")
                 saved_distance_path = os.path.join(navigator.output_dir, "distances.png")
                 if os.path.exists(saved_distance_path):
-                    st.image(Image.open(saved_distance_path), width='stretch')
+                    # FIX: Enforced use_container_width=True layout syntax rules specifically for this structural column matrix asset map
+                    st.image(Image.open(saved_distance_path), use_container_width=True)
                 else:
                     st.warning("Distance vector map file tracking not found on disk.")
                 
