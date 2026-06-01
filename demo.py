@@ -107,7 +107,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
     else:
         with st.spinner("Processing neural pipeline across tracking mesh matrices..."):
             
-            # Defensive Exception Wrapping around neural processing pipeline
+            # Defensive Exception Wrapping
             try:
                 navigator = Navigator(
                     referenceAltitude=reference_altitude,
@@ -117,26 +117,25 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 )
                 navigator.detector.conf_threshold = conf_thresh
                 
-                # Execute and unpack pipeline matrices
+                # Execute pipeline and collect figures
                 best_point, fig_heatmap, fig_density, fig_3d, im_localization = navigator.locateDescentImageInReferenceImage(target_image)
             except Exception as e:
                 st.error(f"🚨 Navigation sequence failed: {e}")
                 st.stop()
             
-            # Cast coordinates safely to pure integers
+            # Cast coordinates safely
             safe_coords = (int(best_point[0]), int(best_point[1]))
             st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{safe_coords}**")
             
-            # --- Visual Output Matrix Layout ---
+            # --- Navigation Telemetry Summary ---
             st.markdown("### 📋 Navigation Telemetry Summary")
             
-            # FIXED: Safe explicit None initialization to prevent stale metric spoofing
             total_craters = None
             avg_conf = None
             landing_score = None
             min_dist = None
 
-            # Case-insensitive report.txt parsing pipeline
+            # Case-insensitive report parsing
             if hasattr(navigator, 'output_dir') and os.path.exists(navigator.output_dir):
                 log_path = os.path.join(navigator.output_dir, "report.txt")
                 if os.path.exists(log_path):
@@ -153,7 +152,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                                 dist_str = line.split(":")[-1].lower().replace("px", "").strip()
                                 min_dist = float(dist_str)
 
-            # Generate structured metrics rows with explicit N/A safety bounds
+            # Render metric indicators
             m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
             with m_col1:
                 st.metric(label="Craters Detected", value=f"{total_craters}" if total_craters is not None else "N/A")
@@ -171,7 +170,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             # --- Visual Output Matrix Layout ---
             st.markdown("### 📊 Generated Telemetry Maps")
             
-            # REFACTORED: Converted columns into proper st.tabs to isolate display weights full-bleed
             tab_landing, tab_terrain, tab_density, tab_vectors = st.tabs([
                 "🎯 Landing Heatmap & Overlay", 
                 "⛰️ 3D Surface Reconstruction", 
@@ -189,21 +187,30 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                     st.image(im_localization, use_container_width=True)
                     
             with tab_terrain:
-                st.markdown("### ⛰️ 3D Surface Reconstruction")
-                st.pyplot(fig_3d)
+                # Constrain view bounds to center column frame to stop giant vertical scrolling
+                _, center_col_3d, _ = st.columns([1, 4, 1])
+                with center_col_3d:
+                    st.markdown("### ⛰️ 3D Surface Reconstruction")
+                    st.pyplot(fig_3d)
                     
             with tab_density:
-                st.markdown("### 🔴 Crater Density Footprint")
-                st.pyplot(fig_density)
+                # Constrain view bounds to center column frame to stop giant vertical scrolling
+                _, center_col_density, _ = st.columns([1, 4, 1])
+                with center_col_density:
+                    st.markdown("### 🔴 Crater Density Footprint")
+                    st.pyplot(fig_density)
                 
             with tab_vectors:
-                st.markdown("### 📏 Crater Distance Vectors")
-                if hasattr(navigator, 'output_dir') and os.path.exists(navigator.output_dir):
-                    saved_distance_path = os.path.join(navigator.output_dir, "distances.png")
-                    if os.path.exists(saved_distance_path):
-                        st.image(Image.open(saved_distance_path), use_container_width=True)
-                    else:
-                        st.warning("Distance vector map not generated.")
+                # Constrain view bounds to center column frame to stop giant vertical scrolling
+                _, center_col_vectors, _ = st.columns([1, 4, 1])
+                with center_col_vectors:
+                    st.markdown("### 📏 Crater Distance Vectors")
+                    if hasattr(navigator, 'output_dir') and os.path.exists(navigator.output_dir):
+                        saved_distance_path = os.path.join(navigator.output_dir, "distances.png")
+                        if os.path.exists(saved_distance_path):
+                            st.image(Image.open(saved_distance_path), use_container_width=True)
+                        else:
+                            st.warning("Distance vector map not generated.")
                 
             if uploaded_file is not None and os.path.exists(temp_path):
                 os.remove(temp_path)
