@@ -1,17 +1,8 @@
-# Web Interface & UX
 streamlit>=1.35.0
-
-# Computer Vision & Machine Learning Core
 ultralytics>=8.2.0
-opencv-python-headless>=4.9.0.80
-
-# Numerical Processing & Matrix Math
+opencv-python-headless==4.8.1.78
 numpy>=1.24.0,<2.0.0
-
-# Scientific Visualization & Geometry Plots
 matplotlib>=3.7.0
 pillow>=10.0.0
-
-# Core Machine Learning Frameworks (Automatically handled by Streamlit Cloud, required for local setups)
 torch>=2.0.0
 torchvision>=0.15.0
