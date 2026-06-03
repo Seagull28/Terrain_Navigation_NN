@@ -137,7 +137,7 @@ class Navigator:
         print(f"Low Confidence (<0.8): {low_confidence}")
 
         # ---- Landing analysis ----
-        best_point, landing_score, fig_heatmap, fig_density = self.analyzeLandingSafety(
+        best_point, landing_score, nearest_dist, fig_heatmap, fig_density = self.analyzeLandingSafety(
             im, descentImageCraters
         )
 
@@ -150,6 +150,7 @@ class Navigator:
         best_point_py = (int(best_point[0]), int(best_point[1]))
         self.logger.log(f"Landing Point: {best_point_py}")
         self.logger.log(f"Landing Score: {landing_score}")
+        self.logger.log(f"Distance from nearest rim: {round(nearest_dist, 2)} px")
         self.logger.log("\nPERFORMANCE METRICS")
         self.logger.log("----------------------")
         self.logger.log(f"Total Craters Detected: {len(descentImageCraters)}")
@@ -252,7 +253,7 @@ class Navigator:
         fig2.savefig(density_path, dpi=300, bbox_inches='tight')
         plt.close(fig2)
 
-        return best_point, score, fig, fig2
+        return best_point, score, distance, fig, fig2
 
     # ----------------------------------------
     # 3D TERRAIN MAP

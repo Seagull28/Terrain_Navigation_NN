@@ -133,7 +133,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             # Initialize metrics to None to protect against silent reporting errors
             total_craters = None
             avg_conf = None
-            landing_score = None
+            parsed_landing_score = None
             min_dist = None
 
             # Dynamic runtime subfolder discovery maps telemetry reports smoothly
@@ -158,7 +158,7 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                             elif "average confidence:" in line_lower:
                                 avg_conf = float(line.split(":")[-1].strip())
                             elif "landing score:" in line_lower:
-                                landing_score = float(line.split(":")[-1].strip())
+                                parsed_landing_score = float(line.split(":")[-1].strip())
                             elif "distance from nearest rim" in line_lower:
                                 dist_str = line.split(":")[-1].lower().replace("px", "").strip()
                                 min_dist = float(dist_str)
@@ -170,9 +170,9 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             with m_col2:
                 st.metric(label="Avg Confidence", value=f"{avg_conf:.2f}" if avg_conf is not None else "N/A")
             with m_col3:
-                st.metric(label="Best Landing Point", value=f"({safe_coords[0]}, {safe_coords[1]})")
+                st.metric(label="Best Landing Point", value=f"({safe_coords[1]}, {safe_coords[0]})")
             with m_col4:
-                st.metric(label="Landing Safety Score", value=f"{landing_score:.2f}" if landing_score is not None else "N/A")
+                st.metric(label="Landing Safety Score", value=f"{parsed_landing_score:.2f}" if parsed_landing_score is not None else "N/A")
             with m_col5:
                 st.metric(label="Nearest Hazard Distance", value=f"{int(min_dist)} px" if min_dist is not None else "N/A")
 
