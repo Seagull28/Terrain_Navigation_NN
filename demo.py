@@ -1,7 +1,18 @@
 # demo.py
 
-import streamlit as st
+# --- CRITICAL: Headless Environment Override to Bypass libGL Crash ---
 import os
+import sys
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["OPENCV_LOG_LEVEL"] = "ERROR"
+
+# Inject dummy modules or force cv2 to skip GUI initialization if it tries to load standard binary bindings
+try:
+    import cv2
+except ImportError:
+    pass
+
+import streamlit as st
 import numpy as np
 from PIL import Image
 from src.TerrainNavigator import Navigator
@@ -107,7 +118,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
     else:
         with st.spinner("Processing neural pipeline across tracking mesh matrices..."):
             
-            # Defensive Exception Wrapping around backend pipeline processing
             try:
                 navigator = Navigator(
                     referenceAltitude=reference_altitude,
@@ -117,36 +127,30 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                 )
                 navigator.detector.conf_threshold = conf_thresh
                 
-                # Execute pipeline and unpack computational map figures
                 best_point, fig_heatmap, fig_density, fig_3d, im_localization = navigator.locateDescentImageInReferenceImage(target_image)
             except Exception as e:
                 st.error(f"🚨 Navigation sequence failed: {e}")
                 st.stop()
             
-            # Cast coordinates safely to pure integers to avoid raw array formatting tags in UI
             safe_coords = (int(best_point[0]), int(best_point[1]))
             st.success(f"🎯 Target Acquired! Safe Landing Site Selected at Vector Matrix Coordinates: **{safe_coords}**")
             
             # --- Navigation Telemetry Summary ---
             st.markdown("### 📋 Navigation Telemetry Summary")
             
-            # Initialize metrics to None to protect against silent reporting errors
             total_craters = None
             avg_conf = None
-            parsed_landing_score = None
+            landing_score = None
             min_dist = None
 
-            # Dynamic runtime subfolder discovery maps telemetry reports smoothly
             target_run_dir = None
             if hasattr(navigator, 'output_dir') and os.path.exists(navigator.output_dir):
                 target_run_dir = navigator.output_dir
             elif os.path.exists("outputs"):
-                # Fallback to scanning for the absolute newest timestamped execution folder on disk
                 all_runs = [os.path.join("outputs", d) for d in os.listdir("outputs") if os.path.isdir(os.path.join("outputs", d))]
                 if all_runs:
                     target_run_dir = max(all_runs, key=os.path.getmtime)
 
-            # Case-insensitive report parsing extracts correct distance properties
             if target_run_dir and os.path.exists(target_run_dir):
                 log_path = os.path.join(target_run_dir, "report.txt")
                 if os.path.exists(log_path):
@@ -158,21 +162,20 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                             elif "average confidence:" in line_lower:
                                 avg_conf = float(line.split(":")[-1].strip())
                             elif "landing score:" in line_lower:
-                                parsed_landing_score = float(line.split(":")[-1].strip())
+                                landing_score = float(line.split(":")[-1].strip())
                             elif "distance from nearest rim" in line_lower:
                                 dist_str = line.split(":")[-1].lower().replace("px", "").strip()
                                 min_dist = float(dist_str)
 
-            # Generate KPI counters with clean layout structures
             m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
             with m_col1:
                 st.metric(label="Craters Detected", value=f"{total_craters}" if total_craters is not None else "N/A")
             with m_col2:
                 st.metric(label="Avg Confidence", value=f"{avg_conf:.2f}" if avg_conf is not None else "N/A")
             with m_col3:
-                st.metric(label="Best Landing Point", value=f"({safe_coords[1]}, {safe_coords[0]})")
+                st.metric(label="Best Landing Point", value=f"({safe_coords[0]}, {safe_coords[1]})")
             with m_col4:
-                st.metric(label="Landing Safety Score", value=f"{parsed_landing_score:.2f}" if parsed_landing_score is not None else "N/A")
+                st.metric(label="Landing Safety Score", value=f"{landing_score:.2f}" if landing_score is not None else "N/A")
             with m_col5:
                 st.metric(label="Nearest Hazard Distance", value=f"{int(min_dist)} px" if min_dist is not None else "N/A")
 
@@ -181,7 +184,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
             # --- Visual Output Matrix Layout ---
             st.markdown("### 📊 Generated Telemetry Maps")
             
-            # Tabs keep visualizations clean and full-width
             tab_landing, tab_terrain, tab_density, tab_vectors = st.tabs([
                 "🎯 Landing Heatmap & Overlay", 
                 "⛰️ 3D Surface Reconstruction", 
@@ -199,7 +201,6 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                     st.image(im_localization, use_container_width=True)
                     
             with tab_terrain:
-                # 1-4-1 layouts prevent vertical scrolling by scaling plots to the screen area
                 _, center_col_3d, _ = st.columns([1, 4, 1])
                 with center_col_3d:
                     st.markdown("### ⛰️ 3D Surface Reconstruction")
@@ -224,6 +225,5 @@ if st.button("🚀 Execute Autonomous Navigation Sequence", use_container_width=
                     else:
                         st.warning("Distance vector map not generated.")
                 
-            # Perform directory file hygiene step
             if uploaded_file is not None and os.path.exists(temp_path):
                 os.remove(temp_path)
