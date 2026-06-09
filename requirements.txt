@@ -1,7 +1,7 @@
 streamlit>=1.35.0
-ultralytics>=8.3.0 --no-binary ultralytics
+ultralytics>=8.3.0
 opencv-python-headless>=4.11.0
-numpy<2.0
+numpy
 matplotlib>=3.7.0
 pillow>=10.0.0
 torch
